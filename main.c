@@ -1,10 +1,10 @@
-#include <netinet/in.h>
-#include <net/ethernet.h>
 #include <pcap/pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
@@ -47,20 +47,34 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
         printf("Src Address : %s\n", inet_ntoa(iph->ip_src));
         printf("Dst Address : %s\n", inet_ntoa(iph->ip_dst));
 
-        if (iph->ip_p == 6) //IPPROTO_TCP_VALUE
+ /*       if (iph->ip_p == 6) //IPPROTO_TCP_VALUE
         {
             tcph = (struct tcp *)(packet + iph->ip_hl * 4);
-  //          tcpdata = (u_char *)(packet + iph->ip_hl * 4 + tcph->doff * 4);
             printf("TCP Header\n");
             printf("Src Port : %d\n" , ntohs(tcph->source));
-            printf("Dst Port : %d\n" , ntohs(tcph->dest));
+            printf("Dst Port : %d\n" , ntohs(tcph->dest));        
         }
-
         while(length--)
         {
             printf("%02x ", *(packet++));  //tcpdata++
             if ((++chcnt % 16) == 0)
                 printf("\n");
+        }
+ */
+        if (iph->ip_p == 6) //IPPROTO_TCP_VALUE
+        {
+            tcph = (struct tcp *)(packet + iph->ip_hl * 4);
+            printf("TCP Header\n");
+            printf("Src Port : %d\n" , ntohs(tcph->source));
+            printf("Dst Port : %d\n" , ntohs(tcph->dest));
+            packet = packet +iph->ip_hl*4 + tcph->th_off * 4;
+            printf("TCP Data\n");
+            while(length--)
+            {
+                printf("%02x ", *(packet++));  //
+                if ((++chcnt % 16) == 0)
+                    printf("\n");
+            }
         }
     }
     else
@@ -73,12 +87,9 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
 int main(int argc, char **argv)
 {
     char *dev;
-
     bpf_u_int32 netp;
     char errbuf[PCAP_ERRBUF_SIZE];
-
     const u_char *packet;
-
     struct bpf_program fp;
 
     pcap_t *pcd;  // packet capture descriptor
