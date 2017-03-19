@@ -14,7 +14,6 @@ struct ip *iph;
 struct tcphdr *tcph;
 
 void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *packet)
-
 {
     (void)useless;
     struct ether_header *ep;
@@ -24,9 +23,7 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     int length=pkthdr->len;
 
     ep = (struct ether_header *)packet;
-
-    u_char *eh = ep->ether_dhost;   //destination eth addr 6
- //   u_char *tcpdata;
+    u_char *eh = ep->ether_dhost;   //shift Octets in one ethernet addr
     printf("Ethernet Header\n");
     printf("Dst Mac : ");
     while(ehcnt--)
@@ -35,61 +32,42 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
         if (ehcnt == 6)
             printf("\nSrc Mac : ");
     }
-
-    packet += sizeof(struct ether_header);
-
+    printf("\n");
+    packet += sizeof(struct ether_header);      //2+6+6
     ether_type = ntohs(ep->ether_type);
-
     if (ether_type == 0x0800) //ETHERTYPE_IP_VALUE
     {
         iph = (struct ip *)packet;
-        printf("\nIP Header\n");
+        printf("IP Header\n");
         printf("Src Address : %s\n", inet_ntoa(iph->ip_src));
         printf("Dst Address : %s\n", inet_ntoa(iph->ip_dst));
-
- /*       if (iph->ip_p == 6) //IPPROTO_TCP_VALUE
-        {
-            tcph = (struct tcp *)(packet + iph->ip_hl * 4);
-            printf("TCP Header\n");
-            printf("Src Port : %d\n" , ntohs(tcph->source));
-            printf("Dst Port : %d\n" , ntohs(tcph->dest));        
-        }
-        while(length--)
-        {
-            printf("%02x ", *(packet++));  //tcpdata++
-            if ((++chcnt % 16) == 0)
-                printf("\n");
-        }
- */
-        if (iph->ip_p == 6) //IPPROTO_TCP_VALUE
+        if (iph->ip_p == 0x06) //IPPROTO_TCP_VALUE
         {
             tcph = (struct tcp *)(packet + iph->ip_hl * 4);
             printf("TCP Header\n");
             printf("Src Port : %d\n" , ntohs(tcph->source));
             printf("Dst Port : %d\n" , ntohs(tcph->dest));
-            packet = packet +iph->ip_hl*4 + tcph->th_off * 4;
+            packet += 40;    //  start From TCP DATA = ipheaderlen(20) + tcp headerlen(20)
             printf("TCP Data\n");
             while(length--)
             {
-                printf("%02x ", *(packet++));  //
+                printf("%02x ", *(packet++));
                 if ((++chcnt % 16) == 0)
                     printf("\n");
             }
         }
+        else
+        printf("NOT FOUND TCP Packet\n");
     }
     else
-    {
-        printf("NONE IP 패킷\n");
-    }
+        printf("NOT FOUND IP Packet\n");
     printf("\n\n");
 }
-
 int main(int argc, char **argv)
 {
     char *dev;
     bpf_u_int32 netp;
     char errbuf[PCAP_ERRBUF_SIZE];
-    const u_char *packet;
     struct bpf_program fp;
 
     pcap_t *pcd;  // packet capture descriptor
@@ -108,7 +86,6 @@ int main(int argc, char **argv)
         printf("%s\n", errbuf);
         exit(1);
     }
-
     if (pcap_compile(pcd, &fp, argv[3], 0, netp) == -1)
     {
         printf("compile error\n");
