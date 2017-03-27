@@ -1,14 +1,11 @@
 #include <pcap/pcap.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <netinet/ip_icmp.h>
 
 struct ip *iph;
 struct tcphdr *tcph;
@@ -35,7 +32,7 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     printf("\n");
     packet += sizeof(struct ether_header);      //2+6+6
     ether_type = ntohs(ep->ether_type);
-    if (ether_type == 0x0800) //ETHERTYPE_IP_VALUE
+    if (ether_type == ETHERTYPE_IP) //ETHERTYPE_IP_VALUE
     {
         iph = (struct ip *)packet;
         printf("IP Header\n");
@@ -43,15 +40,21 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
         printf("Dst Address : %s\n", inet_ntoa(iph->ip_dst));
         if (iph->ip_p == 0x06) //IPPROTO_TCP_VALUE
         {
+ //           tcph = (u_char*)iph+(iph->ip_hl *4);
             tcph = (struct tcp *)(packet + iph->ip_hl * 4);
             printf("TCP Header\n");
             printf("Src Port : %d\n" , ntohs(tcph->source));
             printf("Dst Port : %d\n" , ntohs(tcph->dest));
-            packet += 40;    //  start From TCP DATA = ipheaderlen(20) + tcp headerlen(20)
+           // packet += 40;    //  start From TCP DATA = ipheaderlen(20) + tcp headerlen(20)
+            //totallength
+            packet += (iph->ip_hl *4)+(tcph->doff *4);
+            length -= sizeof(struct ether_header)+(iph->ip_hl*4)+(tcph->doff*4);
             printf("TCP Data\n");
-            while(length--)
+
+            while(length--) //length  need fix
             {
                 printf("%02x ", *(packet++));
+//                pcaket[chcnt++];
                 if ((++chcnt % 16) == 0)
                     printf("\n");
             }
@@ -64,29 +67,34 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     printf("\n\n");
 }
 int main(int argc, char **argv)
-{
+{//argc != 3 cannot exe
     char *dev;
-    bpf_u_int32 netp;
     char errbuf[PCAP_ERRBUF_SIZE];
     struct bpf_program fp;
 
     pcap_t *pcd;  // packet capture descriptor
-
     dev = argv[1];
-    if (dev == NULL)
+    if(argc < 3)
     {
-        printf("%s\n", errbuf);
-        exit(1);
+        printf("Input argument error!\n");
+        if (dev == NULL)
+        {
+            dev = pcap_lookupdev(errbuf);
+            printf("Your device is : %s\n",dev);
+            printf("%s\n", errbuf);
+            exit(1);
+        }
     }
+    else{
     printf("DEV : %s\n", dev);
 
-    pcd = pcap_open_live(dev, BUFSIZ,  0, -1, errbuf);
+    pcd = pcap_open_live(dev, BUFSIZ,  0,1000 , errbuf);
     if (pcd == NULL)
     {
         printf("%s\n", errbuf);
         exit(1);
     }
-    if (pcap_compile(pcd, &fp, argv[3], 0, netp) == -1)
+    if (pcap_compile(pcd, &fp, argv[3], 0, 0) == -1)
     {
         printf("compile error\n");
         exit(1);
@@ -96,5 +104,7 @@ int main(int argc, char **argv)
         printf("setfilter error\n");
         exit(0);
     }
+ //   pcap_next_ex();
     pcap_loop(pcd, atoi(argv[2]), callback, NULL);
+    }
 }
