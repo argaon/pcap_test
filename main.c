@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 struct ip *iph;
 struct tcphdr *tcph;
@@ -18,7 +19,7 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     int chcnt =0;
     int ehcnt = 12;
     int length=pkthdr->len;
-
+    char cip[20];
     ep = (struct ether_header *)packet;
     u_char *eh = ep->ether_dhost;   //shift Octets in one ethernet addr
     printf("Ethernet Header\n");
@@ -37,8 +38,10 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     {
         iph = (struct ip *)packet;
         printf("IP Header\n");
-        printf("Src Address : %s\n", inet_ntoa(iph->ip_src));
-        printf("Dst Address : %s\n", inet_ntoa(iph->ip_dst));
+        inet_ntop(AF_INET,&iph->ip_src,cip,sizeof(cip));
+        printf("Src Address : %s\n", cip);
+        inet_ntop(AF_INET,&iph->ip_dst,cip,sizeof(cip));
+        printf("Dst Address : %s\n", cip);
         if (iph->ip_p == 0x06) //IPPROTO_TCP_VALUE
         {
  //           tcph = (u_char*)iph+(iph->ip_hl *4);
@@ -51,7 +54,6 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
             packet += (iph->ip_hl *4)+(tcph->doff *4);
             length -= sizeof(struct ether_header)+(iph->ip_hl*4)+(tcph->doff*4);
             printf("TCP Data\n");
-
             while(length--) //length  need fix
             {
                 printf("%02x ", *(packet++));
@@ -89,7 +91,7 @@ int main(int argc, char **argv)
     else{
     printf("DEV : %s\n", dev);
 
-    pcd = pcap_open_live(dev, BUFSIZ,  0,1000 , errbuf);
+    pcd = pcap_open_live(dev, BUFSIZ,0,1000,errbuf);
     if (pcd == NULL)
     {
         printf("%s\n", errbuf);
@@ -105,7 +107,7 @@ int main(int argc, char **argv)
         printf("setfilter error\n");
         exit(0);
     }
- //   pcap_next_ex();
+//    pcap_next_ex();
     pcap_loop(pcd, atoi(argv[2]), callback, NULL);
     }
 }
