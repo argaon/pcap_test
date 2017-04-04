@@ -23,12 +23,13 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
     u_char *eh = ep->ether_dhost;   //shift Octets in one ethernet addr
     printf("Ethernet Header\n");
     printf("Dst Mac : ");
-    while(ehcnt--)
-    {
-        printf("%02x ", *(eh++));
-        if (ehcnt == 6)
-            printf("\nSrc Mac : ");
-    }
+    for(ehcnt=0;ehcnt<6;ehcnt++)
+        printf("%02x ",(*eh++));
+    *eh = ep->ether_shost;
+    printf("\n");
+    printf("Src Mac : ");
+    for(ehcnt=0;ehcnt<6;ehcnt++)
+        printf("%02x ",(*eh++));
     printf("\n");
     packet += sizeof(struct ether_header);      //2+6+6
     ether_type = ntohs(ep->ether_type);
